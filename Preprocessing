@@ -1,0 +1,374 @@
+import re
+import csv
+import os
+import pandas as pd
+import sklearn
+from sklearn.utils import shuffle
+import numpy as np 
+import matplotlib.pyplot as plt #just plot
+import seaborn as sns
+import keras
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from keras.models import Model
+from keras.layers import LSTM, Dense, Activation, Input, Embedding, Dropout
+from keras.optimizers import RMSprop
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing import sequence
+from keras.utils import to_categorical, pad_sequences
+from keras.callbacks import EarlyStopping
+
+print("PREPROCESSING......START")
+
+all_files=[]
+for file in os.listdir('C:\\Users\\relia\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.endswith(".txt"):
+        all_files.append(file)
+print("Number of files to be preprocessed:")
+print(len(all_files))
+
+print("Replacing Curly braces and Commas with Spaces--START")
+s="{"
+s1="}"
+s3=","
+r=" "
+for i in all_files:
+    fname=str(i)
+    path1='C:\\Users\\relia\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        data=data.replace(s, r)
+        data=data.replace(s1, r)
+        data=data.replace(s3, r)
+        
+    with open(path1, 'w') as fr:
+        fr.write(data)  
+
+registers=set()
+for i in all_files:
+    fname=str(i)
+    path1='C:\\Users\\relia\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        temp=data.split()
+        for i in temp:
+            if(re.search(r'v[0-9]', i)):
+                registers.add(i)
+            elif(re.search(r'v[0-9][0-9]', i)):
+                registers.add(i)
+            elif(re.search(r'p[0-9]', i)):
+                registers.add(i)
+            elif(re.search(r'p[0-9][0-9]', i)):
+                registers.add(i)
+r1=set()
+for i in registers:
+    if(len(i)<=3):
+        r1.add(i)
+
+print("Registers present in all files:")
+print(r1)
+
+
+print("Replacing registers with spaces NOW")
+r=" "
+for i in all_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        for i in r1:
+            data=data.replace(i, r)
+    with open(path1, 'w') as fr:
+        fr.write(data)   
+print("Registers Replaced")
+
+
+for i in all_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            if line in file2:
+                continue
+            else:
+                file2.append(line)
+    with open(path1, 'w') as fr:
+        for i in file2:
+            fr.write(i)
+print("Replacing curly braces and and commas with spaces--END")
+print("\n")
+
+
+print("Removing Unnecessary Words--START")
+
+drebin_files=[]
+benign_files=[]
+
+
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.startswith("drebin"):
+        drebin_files.append(file)
+print("Number of Malware files :")
+print(len(drebin_files))
+
+for i in drebin_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file3=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        with open(path1, 'r') as fw:
+            for line in lines:
+                temp=re.findall('const-string[\s][\s].+"android.permission..+', line)
+                if "const-string" not in line:
+                    file3.append(line)
+                elif len(temp)!=0:
+                    file3.append(line)
+        with open(path1, 'w') as fw:
+            for i in file3:
+                fw.write(i)
+
+
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.startswith("benign"):
+        benign_files.append(file)
+print("Number of Benign files :")
+print(len(benign_files))
+
+for i in benign_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file3=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        with open(path1, 'r') as fw:
+            for line in lines:
+                temp=re.findall('const-string[\s][\s].+"android.permission..+', line)
+                if "const-string" not in line:
+                    file3.append(line)
+                elif len(temp)!=0:
+                    file3.append(line)
+        with open(path1, 'w') as fw:
+            for i in file3:
+                fw.write(i)
+print("Unnecessary Words Removed--END")
+print("\n")
+
+print("Removing Special Characters--START")
+
+def removing_Special_Characters():
+    temp_files=[]
+    for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+        if file.endswith(".txt"):
+            temp_files.append(file)
+    char_with_space=['!','@','#','>','<','=','(',')',':',';','"',"'",'/'] #replace with space
+    char_to_concat=['$','_','.', '\\'] #concat
+    r=" "
+    for i in temp_files:
+        fname=str(i)
+        path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+        with open(path1, 'r') as fr:
+            data=fr.read()
+            for i in char_with_space:
+                data=data.replace(i, r)
+        with open(path1, 'w') as fr:
+            fr.write(data)
+    r=""
+    for i in temp_files:
+        fname=str(i)
+        path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+        with open(path1, 'r') as fr:
+            data=fr.read()
+            for i in char_to_concat:
+                data=data.replace(i, r)
+        with open(path1, 'w') as fr:
+            fr.write(data)
+removing_Special_Characters()
+print("Removing Special Characters--END")
+print("\n")
+
+
+print("Removing Single Length Character--START")
+
+temp1_files=[]
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.endswith(".txt"):
+        temp1_files.append(file)
+
+for i in temp1_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            line=line.rstrip('\n')+':'
+            file2.append(line)
+    with open(path1, 'w') as fr:
+        for i in file2:
+            fr.write(i)
+            fr.write('\n')
+            
+s=":"
+s1="["
+r="  "
+for i in temp1_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        data=data.replace(s, r)
+        data=data.replace(s1, r)
+    with open(path1, 'w') as fr:
+        fr.write(data)    
+
+r2=set()
+r2.add(1)
+result=[]
+while(len(r2)!=0):
+    for i in temp1_files:
+        fname=str(i)
+        path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+        with open(path1, 'r') as fr:
+            data=fr.read()
+            temp=data.split()
+            result=[" "+word+" " for word in temp if len(word)==1]
+    r2=set()
+    for i in result:
+        if(i in r2):
+            continue
+        else:
+            r2.add(i)
+    r=" "
+    for i in temp1_files:
+        fname=str(i)
+        path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+        with open(path1, 'r') as fr:
+            data=fr.read()
+            for i in r2:
+                data=data.replace(i, r)
+        with open(path1, 'w') as fr:
+            fr.write(data)
+print("Removing Single Length Character--END")
+print("\n")
+print("Removing Hyphen Seperated Words--START")
+
+temp2_files=[]
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.endswith(".txt"):
+        temp2_files.append(file)
+print(len(temp2_files))
+
+l=set()
+for i in temp2_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        temp=data.split()
+        for i in temp:
+            if '-' in i:
+                l.add(i)
+            else:
+                continue
+r3=set()
+for i in l:
+    if(len(i)>1):
+        r3.add(i)
+
+print("All hyphen seperated words")
+print(r3)
+
+firstwords=[]
+for i in temp2_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            temp=line.split()
+            firstwords.append(temp[0])
+print("Hyphen seperated words to be removed")
+print(firstwords)
+
+r=" "
+for i in temp2_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    with open(path1, 'r') as fr:
+        data=fr.read()
+        for i in firstwords:
+            if i in r3:
+                data=data.replace(i, r)
+    with open(path1, 'w') as fr:
+        fr.write(data)  
+print("Removing Hyphen Seperated Words--END")
+print("\n")
+
+print("Removing Unnecessary Spaces--START")
+
+temp3_files=[]
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.endswith(".txt"):
+        temp3_files.append(file)
+
+for i in temp3_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            line=line.lstrip()
+            file2.append(line)
+    with open(path1, 'w') as fr:
+        for i in file2:
+            fr.write(i)
+
+for i in temp3_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            line=' '.join(line.split())
+            file2.append(line)
+        with open(path1, 'w') as fr:
+            for i in file2:
+                fr.write(i)
+                fr.write("\n")
+print("Removing Unnecessary Spaces--END")
+print("\n")
+
+print("Removing Duplicate Lines--START")
+
+temp4_files=[]
+for file in os.listdir('C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet'):
+    if file.endswith(".txt"):
+        temp4_files.append(file)
+     
+for i in temp4_files:
+    fname=str(i)
+    path1='C:\\Users\\HP\\MProjPreprocessing\\ProcessedDataSet\\'+fname
+    file2=[]
+    with open(path1, 'r') as fr:
+        lines=fr.readlines()
+        for line in lines:
+            if line in file2:
+                continue
+            else:
+                file2.append(line)
+    with open(path1, 'w') as fr:
+        for i in file2:
+            fr.write(i)
+print("Removing Duplicate Lines--END")
+print("\n")
+print("Removing Special Character--START")
+removing_Special_Characters()
+print("Removing Special Characters--END")
+print("\n")
+print("PREPROCESSING.......FINISH")
